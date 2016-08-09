@@ -96,12 +96,10 @@ void HelFitQt::init()
 	ui.statusBar->addPermanentWidget(statusProgressBar, 0);
 
 	//Initialize recommended Fittin parameters
-	globalfittingobject->m_alphaConn = -1;
+	globalfittingobject->m_alphaConn = 0;
 	globalfittingobject->m_tauConn = 2.0;
-	globalfittingobject->m_betaComp = -1;
+	globalfittingobject->m_betaComp = 0.01;
 	globalfittingobject->m_sigmaComp = 0.5;
-	globalfittingobject->m_gammaCoord=-1;
-	globalfittingobject->m_rhoCoord=1.;
 }
 
 
@@ -603,9 +601,6 @@ void HelFitQt::calcDebyeStackCurrent()
 	saxs::calc_contacts_of_model(globalfittingobject);
 	globalfittingobject->m_mean_nr_contacts = saxs::return_mean_contacts_of_model(globalfittingobject->m_model);
 	globalfittingobject->m_mean_connectivity = saxs::return_mean_connectivity_of_fittingobject(globalfittingobject);
-	saxs::calc_coordination_of_model(globalfittingobject, globalfittingobject->m_diameter/2.);
-	globalfittingobject->m_mean_nr_coordination = saxs::return_mean_nr_coordination_of_fittingobject(globalfittingobject->m_model);
-	globalfittingobject->m_mean_coordination = saxs::return_mean_coordination_of_fittingobject(globalfittingobject);
 	globalfittingobject->m_compactness = saxs::return_compactness_of_fittingobject(globalfittingobject);
 
 	globalfittingobject->m_sigma_ff = 2.*saxs::pi/double(ui.lineDAsize->text().toDouble());
@@ -626,7 +621,6 @@ void HelFitQt::calcDebyeStackCurrent()
 	writetolog("Ave. number of contacts\t = \t" + boost::lexical_cast<std::string>(globalfittingobject->m_mean_nr_contacts));
 	writetolog("Ave. coordination\t = \t" + boost::lexical_cast<std::string>(globalfittingobject->m_mean_nr_coordination));
 	writetolog("Global connectivity\t = \t" + boost::lexical_cast<std::string>(globalfittingobject->m_mean_connectivity));
-	writetolog("Global coordination\t = \t" + boost::lexical_cast<std::string>(globalfittingobject->m_mean_coordination));
 	writetolog("Global compactness\t = \t" + boost::lexical_cast<std::string>(globalfittingobject->m_compactness));
 
 	//Clear previous calcdata
@@ -904,9 +898,6 @@ void HelFitQt::on_btnFit_clicked()
 	saxs::calc_contacts_of_model(globalfittingobject);
 	globalfittingobject->m_mean_nr_contacts = saxs::return_mean_contacts_of_model(globalfittingobject->m_model);
 	globalfittingobject->m_mean_connectivity = saxs::return_mean_connectivity_of_fittingobject(globalfittingobject);
-	saxs::calc_coordination_of_model(globalfittingobject, globalfittingobject->m_diameter / 2.);
-	globalfittingobject->m_mean_nr_coordination = saxs::return_mean_nr_coordination_of_fittingobject(globalfittingobject->m_model);
-	globalfittingobject->m_mean_coordination = saxs::return_mean_coordination_of_fittingobject(globalfittingobject);
 	globalfittingobject->m_compactness = saxs::return_compactness_of_fittingobject(globalfittingobject);
 
 	globalfittingobject->m_sigma_ff = 2.*saxs::pi / double(ui.lineDAsize->text().toDouble());
@@ -949,7 +940,6 @@ void HelFitQt::on_btnFit_clicked()
 	writetolog("Ave. number of contacts\t = \t" + boost::lexical_cast<std::string>(globalfittingobject->m_mean_nr_contacts));
 	writetolog("Ave. coordination\t = \t" + boost::lexical_cast<std::string>(globalfittingobject->m_mean_nr_coordination));
 	writetolog("Global connectivity\t = \t" + boost::lexical_cast<std::string>(globalfittingobject->m_mean_connectivity));
-	writetolog("Global coordination\t = \t" + boost::lexical_cast<std::string>(globalfittingobject->m_mean_coordination));
 	writetolog("Global compactness\t = \t" + boost::lexical_cast<std::string>(globalfittingobject->m_compactness));
 
 	switch (globalfittingobject->m_weighing) {

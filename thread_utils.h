@@ -168,108 +168,6 @@ namespace saxs
 		}
 	}
 
-	//Calculates the number of coordinatad atoms within search_dian
-	void calc_coordination_of_model(fittingobject_sp& reftofittingobject, const double search_diam)
-	{
-		for (int i = 0; i < reftofittingobject->m_model.size(); i++) reftofittingobject->m_model[i]->m_nr_coorditations = 0;
-
-		double dx, dy, dz, rsqu;
-		double diam_sq = search_diam*search_diam / 16.;
-		for (int i = 0; i < reftofittingobject->m_model.size() - 1; i++)
-		{
-			for (int j = i; j < reftofittingobject->m_model.size(); j++)
-			{
-				dx = reftofittingobject->m_model[j]->m_x - reftofittingobject->m_model[i]->m_x;
-				dy = reftofittingobject->m_model[j]->m_y - reftofittingobject->m_model[i]->m_y;
-				dz = reftofittingobject->m_model[j]->m_z - reftofittingobject->m_model[i]->m_z;
-				if ((dx*dx + dy*dy + dz*dz) < diam_sq)
-				{
-					reftofittingobject->m_model[i]->m_nr_coorditations++;
-					reftofittingobject->m_model[j]->m_nr_coorditations++;
-				}
-			}
-			//Account for atoms at upper z-border of BB:
-			if (reftofittingobject->m_model[i]->m_z > (reftofittingobject->m_stack_spacing - std::sqrt(diam_sq)))
-			{
-				for (int j = i; j < reftofittingobject->m_model.size(); j++)
-				{
-					dx = reftofittingobject->m_model[j]->m_x - reftofittingobject->m_model[i]->m_x;
-					dx = reftofittingobject->m_model[j]->m_y - reftofittingobject->m_model[i]->m_y;
-					dx = reftofittingobject->m_model[j]->m_z + reftofittingobject->m_stack_spacing - reftofittingobject->m_model[i]->m_z;
-					if ((dx*dx + dy*dy + dz*dz) < diam_sq)
-					{
-						reftofittingobject->m_model[i]->m_nr_coorditations++;
-						reftofittingobject->m_model[j]->m_nr_coorditations++;
-					}
-				}
-			}
-			//Account for atoms at lower z-border of BB:
-			if (reftofittingobject->m_model[i]->m_z < (std::sqrt(diam_sq)))
-			{
-				for (int j = i; j < reftofittingobject->m_model.size(); j++)
-				{
-					dx = reftofittingobject->m_model[j]->m_x - reftofittingobject->m_model[i]->m_x;
-					dx = reftofittingobject->m_model[j]->m_y - reftofittingobject->m_model[i]->m_y;
-					dx = reftofittingobject->m_model[j]->m_z - reftofittingobject->m_stack_spacing - reftofittingobject->m_model[i]->m_z;
-					if ((dx*dx + dy*dy + dz*dz) < diam_sq)
-					{
-						reftofittingobject->m_model[i]->m_nr_coorditations++;
-						reftofittingobject->m_model[j]->m_nr_coorditations++;
-					}
-				}
-			}
-		}
-	}
-
-	//return coordination value using potential field
-	double return_mean_coordination_of_fittingobject(fittingobject_sp& reftofittingobject)
-	{
-		double aspect_ratio = reftofittingobject->m_stack_spacing / reftofittingobject->m_diameter;
-		int expected_das = reftofittingobject->m_mean_nr_coordination;
-		//int expected_das = int(double(reftofittingobject->m_model.size())*0.125 / aspect_ratio);
-		double mean_coord = 0;
-		double gradient = double(expected_das) / reftofittingobject->m_rhoCoord;
-		for (int i = 0; i < reftofittingobject->m_model.size(); i++)
-		{
-			if (reftofittingobject->m_model[i]->m_nr_coorditations < expected_das) mean_coord +=
-				(std::exp(-0.5 / gradient*double(reftofittingobject->m_model[i]->m_nr_coorditations))) 
-				+ std::exp(-0.5 / gradient*double(expected_das));
-			else mean_coord += (1 - (1- std::exp(-0.5 / gradient*double(2.*expected_das - reftofittingobject->m_model[i]->m_nr_coorditations)))) 
-				+ std::exp(-0.5 / gradient*double(expected_das));
-		}
-		return double(mean_coord) / double(reftofittingobject->m_model.size());
-	}
-
-	//return coordination value using potential field from coordinationvector
-	double return_mean_coordination_of_coordvector(std::vector<int>& coordvector, fittingobject_sp& reftofittingobject)
-	{
-		double aspect_ratio = reftofittingobject->m_stack_spacing / reftofittingobject->m_diameter;
-		int expected_das = reftofittingobject->m_mean_nr_coordination;
-		//int expected_das = int(double(reftofittingobject->m_model.size())*0.125 / aspect_ratio);
-		double mean_coord = 0;
-		double gradient = double(expected_das) / reftofittingobject->m_rhoCoord;
-		for (int i = 0; i < reftofittingobject->m_model.size(); i++)
-		{
-			if (coordvector[i] < expected_das) mean_coord +=
-				(std::exp(-0.5 / gradient*double(coordvector[i])))
-				+ std::exp(-0.5 / gradient*double(expected_das));
-			else mean_coord += (1 - (1 - std::exp(-0.5 / gradient / 2.*double(3.*expected_das - coordvector[i]))))
-				+ std::exp(-0.5 / gradient*double(expected_das));
-		}
-		return double(mean_coord) / double(reftofittingobject->m_model.size());
-	}
-
-	//return number of coordinated atoms coordination
-	double return_mean_nr_coordination_of_fittingobject(std::vector<coordinate_sp>& model)
-	{
-		int coordsum = 0;
-		for (int i = 0; i < model.size(); i++)
-		{
-			coordsum += model[i]->m_nr_coorditations;
-		}
-		return double(coordsum) / double(model.size());
-	}
-
 	//returns the mean number of contacts of the model
 	double return_mean_contacts_of_model(std::vector<coordinate_sp>& model)
 	{
@@ -488,10 +386,10 @@ namespace saxs
 	}
 
 	//Returns target function that is minimized during the fitting procedure
-	double tartget_function(double chisq, double conn, double conn_w, double coord, double coord_w,
+	double tartget_function(double chisq, double conn, double conn_w,
 		double comp, double comp_w, fittingobject_sp& reftofittingobject)
 	{
-		return chisq + conn_w*(conn) + coord_w*coord +  comp_w*0.5*comp;
+		return chisq + conn_w*(conn) +  comp_w*0.5*comp;
 	}
 
 
@@ -665,7 +563,7 @@ namespace saxs
 	// Recalculates the scattering pattern if changecood is moved by movement - Result will be put into references new_model_i
 	//------------------------------------------------------------------------------
 	void thread_recalc_change(fittingobject_sp& reftofittingobject, int& changedcoord, coordinate_sp& movement, 
-													std::vector<int>& contact_vector, std::vector<int>& coord_vector)
+													std::vector<int>& contact_vector)
 	{
 		//tempvars
 		double r_old = 0;
@@ -683,11 +581,9 @@ namespace saxs
 		double sinc_qr_new_st = 0;
 		int sinc_lookup_size = saxs::sinc_lookup.size();
 		double x, y;
-		double coord_dsq = std::pow(reftofittingobject->m_diameter/4., 2);
 		
 		//reset contactcount on changed atom
 		contact_vector[changedcoord] = 0;
-		coord_vector[changedcoord] = 0;
 
 		for (int i = 0; i < reftofittingobject->m_model.size(); i++)
 		{
@@ -728,16 +624,6 @@ namespace saxs
 					contact_vector[i] += 1;
 					contact_vector[changedcoord] += 1;
 				}	
-				//now adjust coordination
-				if (r_old*r_old < coord_dsq)
-				{
-					coord_vector[i] -= 1;
-				}
-				if (r_new*r_new < coord_dsq)
-				{
-					coord_vector[i] += 1;
-					coord_vector[changedcoord] += 1;
-				}
 				 //Stack contribution
 				if (reftofittingobject->m_num_stacks>1)
 				{
@@ -850,59 +736,7 @@ namespace saxs
 			}
 		}
 
-		//Also recalc coordination for upper boundary atoms
-		if (reftofittingobject->m_model[changedcoord]->m_z >(reftofittingobject->m_stack_spacing - reftofittingobject->m_diameter/2.)
-			|| reftofittingobject->m_model[changedcoord]->m_z + movement->m_z > (reftofittingobject->m_stack_spacing - reftofittingobject->m_diameter / 2.))
-		{
-			for (int i = 0; i < reftofittingobject->m_model.size(); i++)
-			{
-				if (i != changedcoord)
-				{
-					r_old = std::pow(reftofittingobject->m_model[i]->m_x - reftofittingobject->m_model[changedcoord]->m_x, 2) +
-						std::pow(reftofittingobject->m_model[i]->m_y - reftofittingobject->m_model[changedcoord]->m_y, 2) +
-						std::pow(reftofittingobject->m_model[i]->m_z + reftofittingobject->m_stack_spacing - reftofittingobject->m_model[changedcoord]->m_z, 2);
-					r_new = std::pow(reftofittingobject->m_model[i]->m_x - (reftofittingobject->m_model[changedcoord]->m_x + movement->m_x), 2) +
-						std::pow(reftofittingobject->m_model[i]->m_y - (reftofittingobject->m_model[changedcoord]->m_y + movement->m_y), 2) +
-						std::pow(reftofittingobject->m_model[i]->m_z + reftofittingobject->m_stack_spacing - (reftofittingobject->m_model[changedcoord]->m_z + movement->m_z), 2);
-					if (r_old < coord_dsq)
-					{
-						coord_vector[i] -= 1;
-					}
-					if (r_new < coord_dsq)
-					{
-						coord_vector[i] += 1;
-						coord_vector[changedcoord] += 1;
-					}
-				}
-			}
-		}
-		//Also recalc coordination for lower boundary atoms
-		if (reftofittingobject->m_model[changedcoord]->m_z <(reftofittingobject->m_stack_spacing - reftofittingobject->m_diameter / 2.)
-			|| reftofittingobject->m_model[changedcoord]->m_z + movement->m_z < (reftofittingobject->m_stack_spacing - reftofittingobject->m_diameter / 2.))
-		{
-			for (int i = 0; i < reftofittingobject->m_model.size(); i++)
-			{
-				if (i != changedcoord)
-				{
-					r_old = std::pow(reftofittingobject->m_model[i]->m_x - reftofittingobject->m_model[changedcoord]->m_x, 2) +
-						std::pow(reftofittingobject->m_model[i]->m_y - reftofittingobject->m_model[changedcoord]->m_y, 2) +
-						std::pow(reftofittingobject->m_model[i]->m_z - reftofittingobject->m_stack_spacing - reftofittingobject->m_model[changedcoord]->m_z, 2);
-					r_new = std::pow(reftofittingobject->m_model[i]->m_x - (reftofittingobject->m_model[changedcoord]->m_x + movement->m_x), 2) +
-						std::pow(reftofittingobject->m_model[i]->m_y - (reftofittingobject->m_model[changedcoord]->m_y + movement->m_y), 2) +
-						std::pow(reftofittingobject->m_model[i]->m_z - reftofittingobject->m_stack_spacing - (reftofittingobject->m_model[changedcoord]->m_z + movement->m_z), 2);
-					if (r_old <coord_dsq)
-					{
-						coord_vector[i] -= 1;
-					}
-					if (r_new < coord_dsq)
-					{
-						coord_vector[i] += 1;
-						coord_vector[changedcoord] += 1;
-					}
-				}
-			}
-		}
-
+	
 		//Now recalc compactness
 		x = reftofittingobject->m_model[changedcoord]->m_x;
 		y = reftofittingobject->m_model[changedcoord]->m_y;
@@ -915,351 +749,6 @@ namespace saxs
 	}
 
 }	//End of namespace
-
-	//------------------------------------------------------------------------------
-	//	Thread: Fitting function  function
-	//------------------------------------------------------------------------------
-	void DebyeFitThread::run2()
-	{
-		//Make local copy of fitting object so changes don't affect global object
-		saxs::fittingobject localfittingobject = *reftofittingobject;
-		boost::shared_ptr<saxs::fittingobject> localfittingobject_sp = boost::make_shared<saxs::fittingobject>(localfittingobject);
-
-		//Deepcopy model
-		localfittingobject_sp->m_model.clear();
-		for (int i = 0; i < reftofittingobject->m_model.size(); i++)
-			localfittingobject_sp->m_model.push_back(saxs::coordinate_sp(new saxs::coordinate(reftofittingobject->m_model[i]->m_x,
-				reftofittingobject->m_model[i]->m_y,
-				reftofittingobject->m_model[i]->m_z,
-				reftofittingobject->m_model[i]->m_nr_contacts)));
-
-		//Deppcopy data
-		int datasize = localfittingobject_sp->m_model_I.size();
-		localfittingobject_sp->m_model_I.clear();
-		localfittingobject_sp->m_fitted_I.clear();
-		localfittingobject_sp->m_data_I.clear();
-		for (int i = 0; i < datasize; i++)
-		{
-			localfittingobject_sp->m_model_I.push_back(reftofittingobject->m_model_I[i]);
-			localfittingobject_sp->m_fitted_I.push_back(reftofittingobject->m_fitted_I[i]);
-			localfittingobject_sp->m_data_I.push_back(reftofittingobject->m_data_I[i]);
-		}
-
-		//Mutex helper
-		boost::mutex io_mutex;
-
-		//Define helper vector for temporary storage of results
-		std::vector<double> old_model_i;
-		old_model_i.resize(localfittingobject_sp->m_model_I.size());
-
-		//Define temporary QVector for data transfer to GUI
-		QVector<double> send_fitted_I;
-		send_fitted_I.resize(localfittingobject_sp->m_fitted_I.size());
-
-		//Define temporary QVectors for model transfer to GUI
-		QVector<double> qvec_model_x;
-		qvec_model_x.resize(localfittingobject_sp->m_model.size());
-		QVector<double> qvec_model_y;
-		qvec_model_y.resize(localfittingobject_sp->m_model.size());
-		QVector<double> qvec_model_z;
-		qvec_model_z.resize(localfittingobject_sp->m_model.size());
-
-		//Define helper vector for temporary contact storage
-		std::vector<int> nr_contacts_vector;
-		std::vector<int> nr_old_contacts_vector;
-		std::vector<int> nr_coordination_vector;
-		std::vector<int> nr_old_coordination_vector;
-		for (int i = 0; i < localfittingobject_sp->m_model.size(); i++)
-		{
-			nr_contacts_vector.push_back(localfittingobject_sp->m_model[i]->m_nr_contacts);
-			nr_old_contacts_vector.push_back(localfittingobject_sp->m_model[i]->m_nr_contacts);
-			nr_coordination_vector.push_back(localfittingobject_sp->m_model[i]->m_nr_coorditations);
-			nr_old_coordination_vector.push_back(localfittingobject_sp->m_model[i]->m_nr_coorditations);
-		}
-
-
-
-		//Initialize futher variables
-		saxs::coordinate move = (0, 0, 0);
-		boost::shared_ptr<saxs::coordinate> movement = boost::make_shared<saxs::coordinate>(move);
-		double x, y;
-		double chi_start = localfittingobject_sp->m_chi;
-		double old_chi;
-		double old_connectivity;
-		double old_compactness;
-		double old_coordination;
-		double temp_z_coord;
-		double temp;
-		double old_target_f;
-		double new_target_f;
-		double connectivityweight;
-		double compactnessweight;
-		double coordinationweight;
-
-		//Output helpers
-		std::string str;
-		std::stringstream ss;
-
-		for (int i = 0; i < n_runs; i++)
-		{	
-			//Calculate current Temperature
-			temp = endtemp + (starttemp - endtemp)*std::pow(deltatemp, i);
-
-			//heating up randomization
-			saxs::randseed = (unsigned)time(NULL);
-			double rand_scalar_r = temp * localfittingobject_sp->m_diameter;
-			double rand_scalar_h = temp * localfittingobject_sp->m_stack_spacing / 2.;
-			if (localfittingobject_sp->m_num_stacks>1)rand_scalar_h/=10.;
-
-			//Every 5th iteration, all atoms outside a critical diameter are kicked pack to the center by 2/3
-			if (i % 2 == 0 && i != 0 || (i+1) == n_runs)
-			{
-				for (int j = 0; j < localfittingobject_sp->m_model.size(); j++)
-				{
-					x = localfittingobject_sp->m_model[j]->m_x;
-					y = localfittingobject_sp->m_model[j]->m_y;
-					if (x*x + y*y > localfittingobject_sp->m_diameter*localfittingobject_sp->m_diameter / 2.)
-					{
-						movement->m_x = localfittingobject_sp->m_model[j]->m_x / 3. - localfittingobject_sp->m_model[j]->m_x;
-						movement->m_y = localfittingobject_sp->m_model[j]->m_y / 3. - localfittingobject_sp->m_model[j]->m_y;
-						movement->m_z = 0;
-						localfittingobject_sp->m_model[j]->m_x += movement->m_x;
-						localfittingobject_sp->m_model[j]->m_y += movement->m_y;
-					}
-				}
-				saxs::calculate_debye(io_mutex, 0, localfittingobject_sp->m_model_I.size(), localfittingobject_sp);
-				saxs::fit_modeltoexp(localfittingobject_sp);
-				//This causes the system to be seen as overcomapcted => new calculation of critical cylinder diameter
-				localfittingobject_sp->m_compactness = 0.001;
-				localfittingobject_sp->m_diameter = localfittingobject_sp->m_diameter / 0.95;
-			}
-
-			// Dynamic adjustment of critical cylinder diameter
-			if (localfittingobject_sp->m_compactness < 0.3)
-			{
-				localfittingobject_sp->m_diameter = localfittingobject_sp->m_diameter*0.95;
-				localfittingobject_sp->m_contact_d_sq = std::pow(2 * saxs::get_critradius_from_coordinates(localfittingobject_sp->m_diameter,
-					localfittingobject_sp->m_stack_spacing, localfittingobject_sp->m_model.size()), 2);
-				saxs::calc_contacts_of_model(localfittingobject_sp);
-				localfittingobject_sp->m_mean_nr_contacts = saxs::return_mean_contacts_of_model(localfittingobject_sp->m_model);
-				localfittingobject_sp->m_mean_connectivity = saxs::return_mean_connectivity_of_fittingobject(localfittingobject_sp);
-				saxs::calc_coordination_of_model(localfittingobject_sp, localfittingobject_sp->m_diameter/2.);
-				localfittingobject_sp->m_mean_nr_coordination = saxs::return_mean_nr_coordination_of_fittingobject(localfittingobject_sp->m_model);
-				localfittingobject_sp->m_mean_coordination = saxs::return_mean_coordination_of_fittingobject(localfittingobject_sp);
-				localfittingobject_sp->m_compactness = saxs::return_compactness_of_fittingobject(localfittingobject_sp);
-				for (int i = 0; i < localfittingobject_sp->m_model.size(); i++)
-				{
-					nr_contacts_vector[i]=(localfittingobject_sp->m_model[i]->m_nr_contacts);
-					nr_coordination_vector[i] = (localfittingobject_sp->m_model[i]->m_nr_coorditations);
-				}
-			}
-			if (localfittingobject_sp->m_compactness > 0.8)
-			{
-				localfittingobject_sp->m_diameter = localfittingobject_sp->m_diameter* 1.05;
-				localfittingobject_sp->m_contact_d_sq = std::pow(2 * saxs::get_critradius_from_coordinates(localfittingobject_sp->m_diameter,
-					localfittingobject_sp->m_stack_spacing, localfittingobject_sp->m_model.size()), 2);
-				saxs::calc_contacts_of_model(localfittingobject_sp);
-				localfittingobject_sp->m_mean_nr_contacts = saxs::return_mean_contacts_of_model(localfittingobject_sp->m_model);
-				localfittingobject_sp->m_mean_connectivity = saxs::return_mean_connectivity_of_fittingobject(localfittingobject_sp);
-				saxs::calc_coordination_of_model(localfittingobject_sp, localfittingobject_sp->m_diameter / 2.);
-				localfittingobject_sp->m_mean_nr_coordination = saxs::return_mean_nr_coordination_of_fittingobject(localfittingobject_sp->m_model);
-				localfittingobject_sp->m_mean_coordination = saxs::return_mean_coordination_of_fittingobject(localfittingobject_sp);
-				localfittingobject_sp->m_compactness = saxs::return_compactness_of_fittingobject(localfittingobject_sp);
-				for (int i = 0; i < localfittingobject_sp->m_model.size(); i++)
-				{
-					nr_contacts_vector[i] = (localfittingobject_sp->m_model[i]->m_nr_contacts);
-					nr_coordination_vector[i] = (localfittingobject_sp->m_model[i]->m_nr_coorditations);
-				}
-			}
-
-			//Adjust NextNeighbour distance such that not more than 30% have more than 12 neighbours
-			while (saxs::return_fraction_contactsaturated_das(nr_contacts_vector) > 0.5)
-			{
-				localfittingobject_sp->m_contact_d_sq = localfittingobject_sp->m_contact_d_sq*0.95;
-				saxs::calc_contacts_of_model(localfittingobject_sp);
-				localfittingobject_sp->m_mean_nr_contacts = saxs::return_mean_contacts_of_model(localfittingobject_sp->m_model);
-				localfittingobject_sp->m_mean_connectivity = saxs::return_mean_connectivity_of_fittingobject(localfittingobject_sp);
-				saxs::calc_coordination_of_model(localfittingobject_sp, localfittingobject_sp->m_diameter / 2.);
-				localfittingobject_sp->m_mean_nr_coordination = saxs::return_mean_nr_coordination_of_fittingobject(localfittingobject_sp->m_model);
-				localfittingobject_sp->m_mean_coordination = saxs::return_mean_coordination_of_fittingobject(localfittingobject_sp);
-				localfittingobject_sp->m_compactness = saxs::return_compactness_of_fittingobject(localfittingobject_sp);
-				for (int i = 0; i < localfittingobject_sp->m_model.size(); i++)
-				{
-					nr_contacts_vector[i] = (localfittingobject_sp->m_model[i]->m_nr_contacts);
-					nr_coordination_vector[i] = (localfittingobject_sp->m_model[i]->m_nr_coorditations);
-				}
-			}
-
-			//Adjust Connectivity and COmpactness Weights
-			if (localfittingobject_sp->m_betaComp == -1) compactnessweight =
-				0.01*localfittingobject_sp->m_chi,0.5/ double(localfittingobject_sp->m_model.size())*100.;
-			else compactnessweight = localfittingobject_sp->m_betaComp / double(localfittingobject_sp->m_model.size()) * 100.;
-
-			if (localfittingobject_sp->m_alphaConn == -1) connectivityweight =
-				0.01* localfittingobject_sp->m_chi, 1 / double(localfittingobject_sp->m_model.size()) * 100.;
-				//std::pow(localfittingobject_sp->m_chi,0.5) / double(localfittingobject_sp->m_model.size()) * 100.;
-			else connectivityweight = localfittingobject_sp->m_alphaConn / double(localfittingobject_sp->m_model.size()) * 100.;
-
-			if ((i + 1) % 1 == 0) coordinationweight = 0;
-			else
-			{
-				if (localfittingobject_sp->m_gammaCoord == -1) coordinationweight =
-					0.5* std::pow(localfittingobject_sp->m_chi, 1) / double(localfittingobject_sp->m_model.size()) * 100.;
-				//100.*std::pow(localfittingobject_sp->m_chi, 0.5) / double(localfittingobject_sp->m_model.size()) * 50.;
-				else coordinationweight = localfittingobject_sp->m_gammaCoord / double(localfittingobject_sp->m_model.size()) * 100.;
-			}
-
-
-			//Now start loop over all DAs
-			for (int j = 0; j < reftofittingobject->m_model.size(); j++)
-			{
-				//Make copy of current status
-				old_model_i = localfittingobject_sp->m_model_I;
-				old_connectivity = localfittingobject_sp->m_mean_connectivity;
-				old_compactness = localfittingobject_sp->m_compactness;
-				old_coordination = localfittingobject_sp->m_mean_coordination;
-				nr_old_contacts_vector = nr_contacts_vector;
-				nr_old_coordination_vector = nr_coordination_vector;
-				old_chi = localfittingobject_sp->m_chi;
-				old_target_f = saxs::tartget_function(old_chi, old_connectivity, connectivityweight, old_coordination,coordinationweight,
-														old_compactness, compactnessweight, localfittingobject_sp);
-
-				//Generate new random movement
-				movement->m_x = rand_scalar_r*(0.5 - saxs::xor128());
-				movement->m_y = rand_scalar_r*(0.5 - saxs::xor128());
-				movement->m_z = rand_scalar_h*(0.5 - saxs::xor128());
-
-				//Recalc changes and contacts
-				saxs::thread_recalc_change(localfittingobject_sp, j, movement, nr_contacts_vector,nr_coordination_vector);
-				//Recalc fitted intesity using old lin-reg params
-				saxs::recalc_fitted_i(localfittingobject_sp);
-				//Return Connectivity
-				localfittingobject_sp->m_mean_connectivity = saxs::return_mean_connectivity_of_contactvector(nr_contacts_vector, localfittingobject_sp);
-				localfittingobject_sp->m_mean_coordination = saxs::return_mean_coordination_of_coordvector(nr_coordination_vector, localfittingobject_sp);
-				new_target_f = saxs::tartget_function(localfittingobject_sp->m_chi, 
-					localfittingobject_sp->m_mean_connectivity, connectivityweight, 
-					localfittingobject_sp->m_mean_coordination, coordinationweight,
-					localfittingobject_sp->m_compactness, compactnessweight, localfittingobject_sp);
-
-				//Make final comparison if movement is decreasing target function
-				if (new_target_f < old_target_f)
-				{
-					//YES!! Now accept changes
-					localfittingobject_sp->m_model[j]->m_x += movement->m_x;
-					localfittingobject_sp->m_model[j]->m_y += movement->m_y;
-					if (localfittingobject_sp->m_num_stacks>1)
-					{
-						temp_z_coord = localfittingobject_sp->m_model[j]->m_z + movement->m_z;
-						if (temp_z_coord < 0)  movement->m_z += localfittingobject_sp->m_stack_spacing;
-						if (temp_z_coord > localfittingobject_sp->m_stack_spacing)  movement->m_z -= localfittingobject_sp->m_stack_spacing;
-					}
-					localfittingobject_sp->m_model[j]->m_z += movement->m_z;
-					old_target_f = new_target_f;
-				}
-				else
-				{
-					//NO!!! Restore old status
-					localfittingobject_sp->m_model_I = old_model_i;
-					localfittingobject_sp->m_chi = old_chi;
-					localfittingobject_sp->m_mean_connectivity = old_connectivity;
-					localfittingobject_sp->m_mean_coordination = old_coordination;
-					nr_contacts_vector = nr_old_contacts_vector;
-					nr_coordination_vector = nr_old_coordination_vector;
-					localfittingobject_sp->m_compactness = old_compactness;
-				}
-
-			}//endfor j coords
-
-			//Now all DAs have been moved
-			
-			//Redo linear regression
-			fit_modeltoexp(localfittingobject_sp);
-			localfittingobject_sp->m_mean_nr_contacts = saxs::return_mean_contacts_of_contacvector(nr_contacts_vector);
-			localfittingobject_sp->m_mean_coordination = saxs::return_mean_coordination_of_coordvector(nr_contacts_vector, localfittingobject_sp);
-
-			//Write status in tracer
-			result_tracer[coreid]->m_chi_tracer.push_back(localfittingobject_sp->m_chi);
-			result_tracer[coreid]->m_contact_tracer.push_back(localfittingobject_sp->m_mean_nr_contacts);
-			result_tracer[coreid]->m_connectivity_tracer.push_back(localfittingobject_sp->m_mean_connectivity);
-			result_tracer[coreid]->m_compactness_tracer.push_back(localfittingobject_sp->m_compactness);
-			result_tracer[coreid]->m_target_f_tracer.push_back(old_target_f);
-
-			//Report Progress to GUI
-			if (coreid==0)
-			{
-				//Generate output for log file in GUI
-				ss.str(std::string());
-				ss << "Step " << i << ": ";
-				ss << std::scientific;
-				ss << "chi = ";
-				ss << localfittingobject_sp->m_chi;
-				ss << ", connect. = ";
-				ss << localfittingobject_sp->m_mean_connectivity;
-				ss << ", coord. = ";
-				ss << localfittingobject_sp->m_mean_coordination;
-				ss << ", comp. = ";
-				ss << localfittingobject_sp->m_compactness;
-				str = ss.str();
-				emit sig_writelogext(str);
-
-				//Send 1D data to GUI
-				send_fitted_I = QVector<double>::fromStdVector(localfittingobject_sp->m_fitted_I);
-				emit sig_plot_current_thread_Data(send_fitted_I);
-
-				//Every second run, update model
-				if ( (localfittingobject_sp->m_num_stacks>1 && (i + 1) % 2 == 0) || 
-					(localfittingobject_sp->m_num_stacks==1 && (i + 1) % 4 == 0))
-				{
-					for (int k = 0; k < localfittingobject_sp->m_model.size(); k++)
-					{
-						qvec_model_x[k] = localfittingobject_sp->m_model[k]->m_x;
-						qvec_model_y[k] = localfittingobject_sp->m_model[k]->m_y;
-						qvec_model_z[k] = localfittingobject_sp->m_model[k]->m_z;
-					}
-					emit sig_live_update_model(qvec_model_x, qvec_model_y, qvec_model_z);
-				}
-
-				//Update Statusbar
-				emit sig_update_statusbar(double(i) / double(n_runs));
-			}
-
-			//Now check if the Fitting process was aborted by user
-			if (stop_thread)
-			{
-				if (coreid == 0)
-				{
-					str = "MANUAL ABORTION!!!";
-					emit sig_writelogext(str);
-				}
-				emit sig_fittingthread_done(coreid);
-				break;
-			}
-		}//endfor i runs
-
-		//Now the fitting ist done
-
-		//Now recenter the model such that com_xy = (0,0)
-		saxs::recenter_fittingobject(localfittingobject_sp);
-		localfittingobject_sp->m_compactness = saxs::return_compactness_of_fittingobject(localfittingobject_sp);
-
-		 //Copy data from local temporary vector to results
-		for (unsigned int k = 0; k < reftofittingobject->m_model.size(); k++)
-		{
-			result_tracer[coreid]->m_coordinate[k]->m_x = localfittingobject_sp->m_model[k]->m_x;
-			result_tracer[coreid]->m_coordinate[k]->m_y = localfittingobject_sp->m_model[k]->m_y;
-			result_tracer[coreid]->m_coordinate[k]->m_z = localfittingobject_sp->m_model[k]->m_z;
-			result_tracer[coreid]->m_coordinate[k]->m_nr_contacts = nr_contacts_vector[k];
-		}
-		result_tracer[coreid]->m_chi = localfittingobject_sp->m_chi;
-		result_tracer[coreid]->m_mean_connectivity = localfittingobject_sp->m_mean_connectivity;
-		result_tracer[coreid]->m_mean_nr_contacts = localfittingobject_sp->m_mean_nr_contacts;
-		result_tracer[coreid]->m_compactness = localfittingobject_sp->m_compactness;
-		result_tracer[coreid]->m_model_I = localfittingobject_sp->m_model_I;
-		result_tracer[coreid]->m_fitted_I = localfittingobject_sp->m_fitted_I;
-
-		//Send finish signal
-		emit sig_fittingthread_done(coreid);
-	}
 
 	//------------------------------------------------------------------------------
 	//	Thread: Stop Signal handler
@@ -1484,7 +973,7 @@ namespace saxs
 	}
 
 	void mc_recalc_change_regparams(fittingobject_sp& reftofittingobject, int& changedcoord, coordinate_sp& movement,
-		std::vector<int>& contact_vector, std::vector<int>& coord_vector)
+		std::vector<int>& contact_vector)
 	{
 		//tempvars
 		double r_old = 0;
@@ -1502,11 +991,9 @@ namespace saxs
 		double sinc_qr_new_st = 0;
 		int sinc_lookup_size = saxs::sinc_lookup.size();
 		double x, y;
-		double coord_dsq = std::pow(reftofittingobject->m_diameter / 4., 2);
 
 		//reset contactcount on changed atom
 		contact_vector[changedcoord] = 0;
-		coord_vector[changedcoord] = 0;
 
 		for (int i = 0; i < reftofittingobject->m_model.size(); i++)
 		{
@@ -1532,16 +1019,6 @@ namespace saxs
 				{
 					contact_vector[i] += 1;
 					contact_vector[changedcoord] += 1;
-				}
-				//now adjust coordination
-				if (r_old*r_old < coord_dsq)
-				{
-					coord_vector[i] -= 1;
-				}
-				if (r_new*r_new < coord_dsq)
-				{
-					coord_vector[i] += 1;
-					coord_vector[changedcoord] += 1;
 				}
 				//Stack contribution
 				if (reftofittingobject->m_num_stacks>1)
@@ -1629,60 +1106,6 @@ namespace saxs
 				}
 			}
 		}
-
-		//Also recalc coordination for upper boundary atoms
-		if (reftofittingobject->m_model[changedcoord]->m_z >(reftofittingobject->m_stack_spacing - reftofittingobject->m_diameter / 2.)
-			|| reftofittingobject->m_model[changedcoord]->m_z + movement->m_z > (reftofittingobject->m_stack_spacing - reftofittingobject->m_diameter / 2.))
-		{
-			for (int i = 0; i < reftofittingobject->m_model.size(); i++)
-			{
-				if (i != changedcoord)
-				{
-					r_old = std::pow(reftofittingobject->m_model[i]->m_x - reftofittingobject->m_model[changedcoord]->m_x, 2) +
-						std::pow(reftofittingobject->m_model[i]->m_y - reftofittingobject->m_model[changedcoord]->m_y, 2) +
-						std::pow(reftofittingobject->m_model[i]->m_z + reftofittingobject->m_stack_spacing - reftofittingobject->m_model[changedcoord]->m_z, 2);
-					r_new = std::pow(reftofittingobject->m_model[i]->m_x - (reftofittingobject->m_model[changedcoord]->m_x + movement->m_x), 2) +
-						std::pow(reftofittingobject->m_model[i]->m_y - (reftofittingobject->m_model[changedcoord]->m_y + movement->m_y), 2) +
-						std::pow(reftofittingobject->m_model[i]->m_z + reftofittingobject->m_stack_spacing - (reftofittingobject->m_model[changedcoord]->m_z + movement->m_z), 2);
-					if (r_old < coord_dsq)
-					{
-						coord_vector[i] -= 1;
-					}
-					if (r_new < coord_dsq)
-					{
-						coord_vector[i] += 1;
-						coord_vector[changedcoord] += 1;
-					}
-				}
-			}
-		}
-		//Also recalc coordination for lower boundary atoms
-		if (reftofittingobject->m_model[changedcoord]->m_z <(reftofittingobject->m_stack_spacing - reftofittingobject->m_diameter / 2.)
-			|| reftofittingobject->m_model[changedcoord]->m_z + movement->m_z < (reftofittingobject->m_stack_spacing - reftofittingobject->m_diameter / 2.))
-		{
-			for (int i = 0; i < reftofittingobject->m_model.size(); i++)
-			{
-				if (i != changedcoord)
-				{
-					r_old = std::pow(reftofittingobject->m_model[i]->m_x - reftofittingobject->m_model[changedcoord]->m_x, 2) +
-						std::pow(reftofittingobject->m_model[i]->m_y - reftofittingobject->m_model[changedcoord]->m_y, 2) +
-						std::pow(reftofittingobject->m_model[i]->m_z - reftofittingobject->m_stack_spacing - reftofittingobject->m_model[changedcoord]->m_z, 2);
-					r_new = std::pow(reftofittingobject->m_model[i]->m_x - (reftofittingobject->m_model[changedcoord]->m_x + movement->m_x), 2) +
-						std::pow(reftofittingobject->m_model[i]->m_y - (reftofittingobject->m_model[changedcoord]->m_y + movement->m_y), 2) +
-						std::pow(reftofittingobject->m_model[i]->m_z - reftofittingobject->m_stack_spacing - (reftofittingobject->m_model[changedcoord]->m_z + movement->m_z), 2);
-					if (r_old <coord_dsq)
-					{
-						coord_vector[i] -= 1;
-					}
-					if (r_new < coord_dsq)
-					{
-						coord_vector[i] += 1;
-						coord_vector[changedcoord] += 1;
-					}
-				}
-			}
-		}
-
 		//Now recalc compactness
 		x = reftofittingobject->m_model[changedcoord]->m_x;
 		y = reftofittingobject->m_model[changedcoord]->m_y;
@@ -1767,14 +1190,10 @@ namespace saxs
 		//Define helper vector for temporary contact storage
 		std::vector<int> nr_contacts_vector;
 		std::vector<int> nr_old_contacts_vector;
-		std::vector<int> nr_coordination_vector;
-		std::vector<int> nr_old_coordination_vector;
 		for (int i = 0; i < localfittingobject_sp->m_model.size(); i++)
 		{
 			nr_contacts_vector.push_back(localfittingobject_sp->m_model[i]->m_nr_contacts);
 			nr_old_contacts_vector.push_back(localfittingobject_sp->m_model[i]->m_nr_contacts);
-			nr_coordination_vector.push_back(localfittingobject_sp->m_model[i]->m_nr_coorditations);
-			nr_old_coordination_vector.push_back(localfittingobject_sp->m_model[i]->m_nr_coorditations);
 		}
 
 
@@ -1794,12 +1213,9 @@ namespace saxs
 		double new_target_f;
 		double connectivityweight;
 		double compactnessweight;
-		double coordinationweight;
 
 		//Potential Field helpers
 		double x_pot, y_pot;
-		double r_curr;
-		double pot_weight;
 
 		//Output helpers
 		std::string str;
@@ -1917,14 +1333,10 @@ namespace saxs
 				saxs::calc_contacts_of_model(localfittingobject_sp);
 				localfittingobject_sp->m_mean_nr_contacts = saxs::return_mean_contacts_of_model(localfittingobject_sp->m_model);
 				localfittingobject_sp->m_mean_connectivity = saxs::return_mean_connectivity_of_fittingobject(localfittingobject_sp);
-				saxs::calc_coordination_of_model(localfittingobject_sp, localfittingobject_sp->m_diameter / 2.);
-				localfittingobject_sp->m_mean_nr_coordination = saxs::return_mean_nr_coordination_of_fittingobject(localfittingobject_sp->m_model);
-				localfittingobject_sp->m_mean_coordination = saxs::return_mean_coordination_of_fittingobject(localfittingobject_sp);
 				localfittingobject_sp->m_compactness = saxs::return_compactness_of_fittingobject(localfittingobject_sp);
 				for (int i = 0; i < localfittingobject_sp->m_model.size(); i++)
 				{
 					nr_contacts_vector[i] = (localfittingobject_sp->m_model[i]->m_nr_contacts);
-					nr_coordination_vector[i] = (localfittingobject_sp->m_model[i]->m_nr_coorditations);
 				}
 			}
 			if (localfittingobject_sp->m_compactness > 0.8)
@@ -1935,14 +1347,10 @@ namespace saxs
 				saxs::calc_contacts_of_model(localfittingobject_sp);
 				localfittingobject_sp->m_mean_nr_contacts = saxs::return_mean_contacts_of_model(localfittingobject_sp->m_model);
 				localfittingobject_sp->m_mean_connectivity = saxs::return_mean_connectivity_of_fittingobject(localfittingobject_sp);
-				saxs::calc_coordination_of_model(localfittingobject_sp, localfittingobject_sp->m_diameter / 2.);
-				localfittingobject_sp->m_mean_nr_coordination = saxs::return_mean_nr_coordination_of_fittingobject(localfittingobject_sp->m_model);
-				localfittingobject_sp->m_mean_coordination = saxs::return_mean_coordination_of_fittingobject(localfittingobject_sp);
 				localfittingobject_sp->m_compactness = saxs::return_compactness_of_fittingobject(localfittingobject_sp);
 				for (int i = 0; i < localfittingobject_sp->m_model.size(); i++)
 				{
 					nr_contacts_vector[i] = (localfittingobject_sp->m_model[i]->m_nr_contacts);
-					nr_coordination_vector[i] = (localfittingobject_sp->m_model[i]->m_nr_coorditations);
 				}
 			}
 
@@ -1953,36 +1361,16 @@ namespace saxs
 				saxs::calc_contacts_of_model(localfittingobject_sp);
 				localfittingobject_sp->m_mean_nr_contacts = saxs::return_mean_contacts_of_model(localfittingobject_sp->m_model);
 				localfittingobject_sp->m_mean_connectivity = saxs::return_mean_connectivity_of_fittingobject(localfittingobject_sp);
-				saxs::calc_coordination_of_model(localfittingobject_sp, localfittingobject_sp->m_diameter / 2.);
-				localfittingobject_sp->m_mean_nr_coordination = saxs::return_mean_nr_coordination_of_fittingobject(localfittingobject_sp->m_model);
-				localfittingobject_sp->m_mean_coordination = saxs::return_mean_coordination_of_fittingobject(localfittingobject_sp);
 				localfittingobject_sp->m_compactness = saxs::return_compactness_of_fittingobject(localfittingobject_sp);
 				for (int i = 0; i < localfittingobject_sp->m_model.size(); i++)
 				{
 					nr_contacts_vector[i] = (localfittingobject_sp->m_model[i]->m_nr_contacts);
-					nr_coordination_vector[i] = (localfittingobject_sp->m_model[i]->m_nr_coorditations);
 				}
 			}
 
 			//Adjust Connectivity and COmpactness Weights
-			if (localfittingobject_sp->m_betaComp == -1) compactnessweight =
-				0.01*localfittingobject_sp->m_chi / double(localfittingobject_sp->m_model.size())*100.;
-			else compactnessweight = localfittingobject_sp->m_betaComp / double(localfittingobject_sp->m_model.size()) * 100.;
-
-			if (localfittingobject_sp->m_alphaConn == -1) connectivityweight = 0;
-			//	0.01* localfittingobject_sp->m_chi, 1 / double(localfittingobject_sp->m_model.size()) * 100.;
-			//std::pow(localfittingobject_sp->m_chi,0.5) / double(localfittingobject_sp->m_model.size()) * 100.;
-			else connectivityweight = localfittingobject_sp->m_alphaConn / double(localfittingobject_sp->m_model.size()) * 100.;
-
-			if ((i + 1) % 1 == 0) coordinationweight = 0;
-			else
-			{
-				if (localfittingobject_sp->m_gammaCoord == -1) coordinationweight =
-					0.5* std::pow(localfittingobject_sp->m_chi, 1) / double(localfittingobject_sp->m_model.size()) * 100.;
-				//100.*std::pow(localfittingobject_sp->m_chi, 0.5) / double(localfittingobject_sp->m_model.size()) * 50.;
-				else coordinationweight = localfittingobject_sp->m_gammaCoord / double(localfittingobject_sp->m_model.size()) * 100.;
-			}
-
+			compactnessweight = localfittingobject_sp->m_betaComp * localfittingobject_sp->m_chi;
+			connectivityweight = localfittingobject_sp->m_chi * localfittingobject_sp->m_alphaConn;
 
 			//Now start loop over all DAs
 			for (int j = 0; j < reftofittingobject->m_model.size(); j++)
@@ -1991,22 +1379,19 @@ namespace saxs
 				old_model_i = localfittingobject_sp->m_model_I;
 				old_connectivity = localfittingobject_sp->m_mean_connectivity;
 				old_compactness = localfittingobject_sp->m_compactness;
-				old_coordination = localfittingobject_sp->m_mean_coordination;
 				nr_old_contacts_vector = nr_contacts_vector;
-				nr_old_coordination_vector = nr_coordination_vector;
 				old_chi = localfittingobject_sp->m_chi;
-				old_target_f = saxs::tartget_function(old_chi, old_connectivity, connectivityweight, old_coordination, coordinationweight,
+				old_target_f = saxs::tartget_function(old_chi, old_connectivity, connectivityweight,
 					old_compactness, compactnessweight, localfittingobject_sp);
 
 				//Random movement using potential field
-				r_curr = std::sqrt(std::pow(localfittingobject_sp->m_model[j]->m_x, 2) + std::pow(localfittingobject_sp->m_model[j]->m_y, 2));
 				x_pot = std::cos(2.*saxs::pi / localfittingobject_sp->m_stack_spacing*localfittingobject_sp->m_model[j]->m_z);
 				y_pot = std::sin(2.*saxs::pi / localfittingobject_sp->m_stack_spacing*localfittingobject_sp->m_model[j]->m_z);
 
 				//Generate new random movement
 				//Was 0.3
-				movement->m_x = rand_scalar_r*(0.3*temp * x_pot + 1*(0.5 - saxs::xor128()));
-				movement->m_y = rand_scalar_r*(0.3*temp * y_pot + 1*(0.5 - saxs::xor128()));
+				movement->m_x = rand_scalar_r*(0.2*temp * x_pot + 1*(0.5 - saxs::xor128()));
+				movement->m_y = rand_scalar_r*(0.2*temp * y_pot + 1*(0.5 - saxs::xor128()));
 				movement->m_z = rand_scalar_h*(0.5 - saxs::xor128());
 
 				//Recalc changes and contacts
@@ -2015,7 +1400,7 @@ namespace saxs
 				{
 					//Instantiate and start threads
 					threadGroup_sp->add_thread(new boost::thread(saxs::mc_recalc_change_regparams, localfittingobject_sp, j, boost::ref(movement),
-						nr_contacts_vector, nr_coordination_vector));
+						nr_contacts_vector));
 					for (unsigned int k = 0; k<(localfittingobject_sp->m_num_cores - 1); k++)
 					{
 						threadGroup_sp->add_thread(new boost::thread(saxs::mc_recalc_change_I, localfittingobject_sp, j, boost::ref(movement),
@@ -2028,17 +1413,15 @@ namespace saxs
 				}
 				else
 					//Recalc changes and contacts
-					saxs::thread_recalc_change(localfittingobject_sp, j, movement, nr_contacts_vector, nr_coordination_vector);
+					saxs::thread_recalc_change(localfittingobject_sp, j, movement, nr_contacts_vector);
 
 				//Recalc fitted intesity using old lin-reg params
 				saxs::recalc_fitted_i(localfittingobject_sp);
 
 				//Return Connectivity
 				localfittingobject_sp->m_mean_connectivity = saxs::return_mean_connectivity_of_contactvector(nr_contacts_vector, localfittingobject_sp);
-				localfittingobject_sp->m_mean_coordination = saxs::return_mean_coordination_of_coordvector(nr_coordination_vector, localfittingobject_sp);
 				new_target_f = saxs::tartget_function(localfittingobject_sp->m_chi,
 					localfittingobject_sp->m_mean_connectivity, connectivityweight,
-					localfittingobject_sp->m_mean_coordination, coordinationweight,
 					localfittingobject_sp->m_compactness, compactnessweight, localfittingobject_sp);
 
 				//Make final comparison if movement is decreasing target function
@@ -2062,9 +1445,7 @@ namespace saxs
 					localfittingobject_sp->m_model_I = old_model_i;
 					localfittingobject_sp->m_chi = old_chi;
 					localfittingobject_sp->m_mean_connectivity = old_connectivity;
-					localfittingobject_sp->m_mean_coordination = old_coordination;
 					nr_contacts_vector = nr_old_contacts_vector;
-					nr_coordination_vector = nr_old_coordination_vector;
 					localfittingobject_sp->m_compactness = old_compactness;
 				}
 
@@ -2075,7 +1456,6 @@ namespace saxs
 			 //Redo linear regression
 			fit_modeltoexp(localfittingobject_sp);
 			localfittingobject_sp->m_mean_nr_contacts = saxs::return_mean_contacts_of_contacvector(nr_contacts_vector);
-			localfittingobject_sp->m_mean_coordination = saxs::return_mean_coordination_of_coordvector(nr_contacts_vector, localfittingobject_sp);
 
 			//Write status in tracer
 			result_tracer[coreid]->m_chi_tracer.push_back(localfittingobject_sp->m_chi);
@@ -2095,8 +1475,6 @@ namespace saxs
 				ss << localfittingobject_sp->m_chi;
 				ss << ", connect. = ";
 				ss << localfittingobject_sp->m_mean_connectivity;
-				ss << ", coord. = ";
-				ss << localfittingobject_sp->m_mean_coordination;
 				ss << ", comp. = ";
 				ss << localfittingobject_sp->m_compactness;
 				str = ss.str();

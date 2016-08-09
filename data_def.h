@@ -92,8 +92,6 @@ struct fittingobject
 	double m_mean_nr_contacts;
 	double m_mean_connectivity;
 	double m_mean_nr_coordination;
-	double m_mean_coordination;
-	double m_sdev_coordination;
 	std::pair<double, double> m_linreg_results;
 	double m_norm;
 	double m_norm_offset;
@@ -115,8 +113,6 @@ struct fittingobject
 	double m_tauConn;
 	double m_betaComp;
 	double m_sigmaComp;
-	double m_gammaCoord;
-	double m_rhoCoord;
 };
 typedef boost::shared_ptr<fittingobject> fittingobject_sp;
 
