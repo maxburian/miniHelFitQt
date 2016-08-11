@@ -113,6 +113,8 @@ struct fittingobject
 	double m_tauConn;
 	double m_betaComp;
 	double m_sigmaComp;
+	double m_gammaHelBias;
+	double m_rand_seed_scalar;
 };
 typedef boost::shared_ptr<fittingobject> fittingobject_sp;
 

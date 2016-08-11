@@ -100,6 +100,8 @@ void HelFitQt::init()
 	globalfittingobject->m_tauConn = 2.0;
 	globalfittingobject->m_betaComp = 0.01;
 	globalfittingobject->m_sigmaComp = 0.5;
+	globalfittingobject->m_gammaHelBias = 0.3;
+	globalfittingobject->m_rand_seed_scalar = 0.2;
 }
 
 
@@ -768,6 +770,8 @@ void HelFitQt::actionChangeFittingParams()
 	mydialog_fittingvars->tau_conn = globalfittingobject->m_tauConn;
 	mydialog_fittingvars->beta_comp = globalfittingobject->m_betaComp;
 	mydialog_fittingvars->sigma_comp = globalfittingobject->m_sigmaComp;
+	mydialog_fittingvars->gamma_helbias = globalfittingobject->m_gammaHelBias;
+	mydialog_fittingvars->random_seed_scalar = globalfittingobject->m_rand_seed_scalar;
 	mydialog_fittingvars->write_current_vars();
 
 	//Run Dialog
@@ -788,6 +792,8 @@ void HelFitQt::actionChangeFittingParams()
 	globalfittingobject->m_tauConn = mydialog_fittingvars->tau_conn;
 	globalfittingobject->m_betaComp = mydialog_fittingvars->beta_comp;
 	globalfittingobject->m_sigmaComp = mydialog_fittingvars->sigma_comp;
+	globalfittingobject->m_gammaHelBias = mydialog_fittingvars->gamma_helbias;
+	globalfittingobject->m_rand_seed_scalar = mydialog_fittingvars->random_seed_scalar;
 
 	//Write info in ouput field
 	writetolog(" ");
@@ -801,6 +807,10 @@ void HelFitQt::actionChangeFittingParams()
 	writetolog(str + boost::lexical_cast<std::string>(globalfittingobject->m_betaComp));
 	str = "Comp. potential sig.\t = \t";
 	writetolog(str + boost::lexical_cast<std::string>(globalfittingobject->m_sigmaComp));
+	str = "Helical bias weight \t = \t";
+	writetolog(str + boost::lexical_cast<std::string>(globalfittingobject->m_gammaHelBias));
+	str = "Random seed scalar \t = \t";
+	writetolog(str + boost::lexical_cast<std::string>(globalfittingobject->m_rand_seed_scalar));
 }
 
 //Menu - Saves the currently displayed model to pdb files
@@ -888,9 +898,12 @@ void HelFitQt::on_btnFit_clicked()
 	globalfittingobject->m_num_runs = int(ui.spbNrRuns->value());
 	globalfittingobject->m_multicore = ui.menuMultiCore->isChecked();
 
-	//get calculation parameters from gui
+
 	//build fittingobject
 	movedatatofittingobject();
+
+	//first recenter model if only bb is fitted
+	saxs::recenter_fittingobject(globalfittingobject);
 	
 	globalfittingobject->m_diameter = saxs::get_cyldiameter_from_coordinates(globalfittingobject->m_model);
 	globalfittingobject->m_contact_d_sq = std::pow(2 * saxs::get_critradius_from_coordinates(globalfittingobject->m_diameter, 
@@ -963,7 +976,12 @@ void HelFitQt::on_btnFit_clicked()
 	//Get approximate model dimensions for contiuous update
 	stat_model_boundaries.resize(3);
 	stat_model_boundaries = saxs::convertCoordinateToCylinder(globalfittingobject->m_model, plot_model_cyl);
-	stat_model_boundaries[0] = stat_model_boundaries[0] * 3.;
+	stat_model_boundaries[0] = stat_model_boundaries[0] * 2.;
+	if (globalfittingobject->m_num_stacks < 2)
+	{
+		stat_model_boundaries[1] = stat_model_boundaries[1] * 2.;
+		stat_model_boundaries[2] = stat_model_boundaries[2] * 2.;
+	}
 
 	//Failsafe for multicore mode
 	if (globalfittingobject->m_multicore && globalfittingobject->m_num_cores == 1)globalfittingobject->m_num_cores = 2;

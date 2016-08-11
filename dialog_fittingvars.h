@@ -16,6 +16,8 @@ public:
 	double tau_conn;
 	double beta_comp;
 	double sigma_comp;
+	double gamma_helbias;
+	double random_seed_scalar;
 
 	void write_current_vars();
 

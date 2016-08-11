@@ -78,6 +78,33 @@ namespace saxs
 		return std::sqrt(r);
 	}
 
+	//Returns mean R from model
+	double get_meanr_from_coordinates(fittingobject_sp& reftofittingobject)
+	{
+		double rmean = 0;
+		double r=0;
+
+		if (reftofittingobject->m_num_stacks > 1)
+		{
+			for (int i = 0; i < reftofittingobject->m_model.size(); i++)
+			{
+				r += std::sqrt(reftofittingobject->m_model[i]->m_x*reftofittingobject->m_model[i]->m_x +
+					reftofittingobject->m_model[i]->m_y*reftofittingobject->m_model[i]->m_y);
+			}
+		}
+		else
+		{
+			for (int i = 0; i < reftofittingobject->m_model.size(); i++)
+			{
+				r += std::sqrt(reftofittingobject->m_model[i]->m_x*reftofittingobject->m_model[i]->m_x +
+					reftofittingobject->m_model[i]->m_y*reftofittingobject->m_model[i]->m_y+
+					reftofittingobject->m_model[i]->m_z*reftofittingobject->m_model[i]->m_z);
+			}
+		}
+
+		return r/double(reftofittingobject->m_model.size());
+	}
+
 	//Returns pari<z_min,z_max> of model
 	std::pair<double,double> get_zboundaries_from_coordinates(std::vector<coordinate_sp>& model)
 	{
@@ -261,19 +288,27 @@ namespace saxs
 		int nr_da_inside = 0;
 		double x_com = 0;
 		double y_com = 0;
+		double z_com = 0;
+
 		for (int i = 0; i < reftofittingobject->m_model.size(); i++)
 		{
 			x_com += reftofittingobject->m_model[i]->m_x;
 			y_com += reftofittingobject->m_model[i]->m_y;
+			z_com += reftofittingobject->m_model[i]->m_z;
 		}
 
 		x_com = x_com / double(reftofittingobject->m_model.size());
 		y_com = y_com / double(reftofittingobject->m_model.size());
+		z_com = z_com / double(reftofittingobject->m_model.size());
+
+		if (reftofittingobject->m_num_stacks > 1) z_com = 0;
+
 
 		for (int i = 0; i < reftofittingobject->m_model.size(); i++)
 		{
-			reftofittingobject->m_model[i]->m_x-=x_com;
-			reftofittingobject->m_model[i]->m_y-=y_com;
+			reftofittingobject->m_model[i]->m_x -= x_com;
+			reftofittingobject->m_model[i]->m_y -= y_com;
+			reftofittingobject->m_model[i]->m_z -= z_com;
 		}
 	}
 
@@ -1213,9 +1248,13 @@ namespace saxs
 		double new_target_f;
 		double connectivityweight;
 		double compactnessweight;
+		double mean_r,r;
 
 		//Potential Field helpers
 		double x_pot, y_pot;
+
+		//Deactivate Helical bias in single bb mode
+		if (localfittingobject_sp->m_num_stacks == 1)localfittingobject_sp->m_gammaHelBias = 0;
 
 		//Output helpers
 		std::string str;
@@ -1240,35 +1279,45 @@ namespace saxs
 				{
 					for (int j = 0; j < localfittingobject_sp->m_model.size(); j++)
 					{
-						localfittingobject_sp->m_model[j]->m_x += 0.4*rand_scalar_r*0.5*(0.5 - saxs::xor128());
-						localfittingobject_sp->m_model[j]->m_y += 0.4*rand_scalar_r*0.5*(0.5 - saxs::xor128());
-						if (localfittingobject_sp->m_num_stacks > 1)
-							localfittingobject_sp->m_model[j]->m_z += rand_scalar_h*(0.5 - saxs::xor128());
-						else
-							localfittingobject_sp->m_model[j]->m_z += 0.4*rand_scalar_h*(0.5 - saxs::xor128());
+						localfittingobject_sp->m_model[j]->m_x += localfittingobject_sp->m_rand_seed_scalar*rand_scalar_r*0.5*(0.5 - saxs::xor128());
+						localfittingobject_sp->m_model[j]->m_y += localfittingobject_sp->m_rand_seed_scalar*rand_scalar_r*0.5*(0.5 - saxs::xor128());
+						localfittingobject_sp->m_model[j]->m_z += localfittingobject_sp->m_rand_seed_scalar*rand_scalar_h*(0.5 - saxs::xor128());
 					}
 				}
-
 				//Moving atoms with no neighbours
-				if ((i + 5) % 10 == 0)
+				if ((i + 16) % 10 == 0 || (i + 11) % 10 == 0)
 				{
+					mean_r = saxs::get_meanr_from_coordinates(localfittingobject_sp);
+					saxs::calc_contacts_of_model(localfittingobject_sp);
 					for (int j = 0; j < localfittingobject_sp->m_model.size(); j++)
 					{
-						if (1 > localfittingobject_sp->m_model[j]->m_nr_contacts)
+						if (3 > localfittingobject_sp->m_model[j]->m_nr_contacts)
 						{
-							movement->m_x = localfittingobject_sp->m_model[j]->m_x / 1.5 - localfittingobject_sp->m_model[j]->m_x;
-							movement->m_y = localfittingobject_sp->m_model[j]->m_y / 1.5 - localfittingobject_sp->m_model[j]->m_y;
 							if (localfittingobject_sp->m_num_stacks > 1)
-								movement->m_z =0;
+							{
+								r = std::sqrt(localfittingobject_sp->m_model[j]->m_x*localfittingobject_sp->m_model[j]->m_x +
+									localfittingobject_sp->m_model[j]->m_y * localfittingobject_sp->m_model[j]->m_y);
+							if (r < 0.1)r = 0.1;
+							movement->m_z = 0;
+							}
 							else
-								movement->m_z = localfittingobject_sp->m_model[j]->m_z / 1.5 - localfittingobject_sp->m_model[j]->m_z;
-							localfittingobject_sp->m_model[j]->m_x += movement->m_x;
-							localfittingobject_sp->m_model[j]->m_y += movement->m_y;
-							localfittingobject_sp->m_model[j]->m_z += movement->m_z;
+							{
+								r = std::sqrt(localfittingobject_sp->m_model[j]->m_x*localfittingobject_sp->m_model[j]->m_x +
+									localfittingobject_sp->m_model[j]->m_y * localfittingobject_sp->m_model[j]->m_y +
+									localfittingobject_sp->m_model[j]->m_z * localfittingobject_sp->m_model[j]->m_z);
+								if (r < 0.1)r = 0.1;
+								movement->m_z = (mean_r / r - 1) * localfittingobject_sp->m_model[j]->m_z;
+							}
+							
+							movement->m_x = ( mean_r / r - 1) * localfittingobject_sp->m_model[j]->m_x;
+							movement->m_y = ( mean_r / r - 1) *  localfittingobject_sp->m_model[j]->m_y;
+
+							localfittingobject_sp->m_model[j]->m_x += movement->m_x/2.;
+							localfittingobject_sp->m_model[j]->m_y += movement->m_y/2.;
+							localfittingobject_sp->m_model[j]->m_z += movement->m_z/2.;
 						}
 					}
 				}
-
 				//Critical diameter check
 				if (localfittingobject_sp->m_num_stacks > 1)
 					for (int j = 0; j < localfittingobject_sp->m_model.size(); j++)
@@ -1355,7 +1404,7 @@ namespace saxs
 			}
 
 			//Adjust NextNeighbour distance such that not more than 30% have more than 12 neighbours
-			while (saxs::return_fraction_contactsaturated_das(nr_contacts_vector) > 0.3)
+			while (saxs::return_fraction_contactsaturated_das(nr_contacts_vector) > 0.1)
 			{
 				localfittingobject_sp->m_contact_d_sq = localfittingobject_sp->m_contact_d_sq*0.95;
 				saxs::calc_contacts_of_model(localfittingobject_sp);
@@ -1390,8 +1439,8 @@ namespace saxs
 
 				//Generate new random movement
 				//Was 0.3
-				movement->m_x = rand_scalar_r*(0.2*temp * x_pot + 1*(0.5 - saxs::xor128()));
-				movement->m_y = rand_scalar_r*(0.2*temp * y_pot + 1*(0.5 - saxs::xor128()));
+				movement->m_x = rand_scalar_r*(localfittingobject_sp->m_gammaHelBias*temp * x_pot + 1*(0.5 - saxs::xor128()));
+				movement->m_y = rand_scalar_r*(localfittingobject_sp->m_gammaHelBias*temp * y_pot + 1*(0.5 - saxs::xor128()));
 				movement->m_z = rand_scalar_h*(0.5 - saxs::xor128());
 
 				//Recalc changes and contacts
@@ -1473,8 +1522,10 @@ namespace saxs
 				ss << std::scientific;
 				ss << "chi = ";
 				ss << localfittingobject_sp->m_chi;
-				ss << ", connect. = ";
+				ss << ", conn. = ";
 				ss << localfittingobject_sp->m_mean_connectivity;
+				ss << ", d_conn. = ";
+				ss << std::sqrt(localfittingobject_sp->m_contact_d_sq);
 				ss << ", comp. = ";
 				ss << localfittingobject_sp->m_compactness;
 				str = ss.str();
