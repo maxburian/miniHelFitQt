@@ -131,8 +131,13 @@ public:
         HelFitQtClass->setMinimumSize(QSize(1020, 720));
         HelFitQtClass->setMaximumSize(QSize(1020, 720));
         HelFitQtClass->setContextMenuPolicy(Qt::ActionsContextMenu);
+        QIcon icon;
+        icon.addFile(QStringLiteral("icon.png"), QSize(), QIcon::Normal, QIcon::Off);
+        HelFitQtClass->setWindowIcon(icon);
         HelFitQtClass->setAutoFillBackground(false);
+        HelFitQtClass->setIconSize(QSize(60, 60));
         HelFitQtClass->setAnimated(true);
+        HelFitQtClass->setTabShape(QTabWidget::Rounded);
         menuFileExit = new QAction(HelFitQtClass);
         menuFileExit->setObjectName(QStringLiteral("menuFileExit"));
         menuLoadModel = new QAction(HelFitQtClass);
@@ -190,6 +195,7 @@ public:
         tabWidget->setAutoFillBackground(false);
         tabWidget->setTabPosition(QTabWidget::North);
         tabWidget->setTabShape(QTabWidget::Rounded);
+        tabWidget->setElideMode(Qt::ElideNone);
         tabWidget->setTabsClosable(false);
         tabDataView = new QWidget();
         tabDataView->setObjectName(QStringLiteral("tabDataView"));
@@ -573,7 +579,7 @@ public:
 
     void retranslateUi(QMainWindow *HelFitQtClass)
     {
-        HelFitQtClass->setWindowTitle(QApplication::translate("HelFitQtClass", "HelFitQt", 0));
+        HelFitQtClass->setWindowTitle(QApplication::translate("HelFitQtClass", "HelFit", 0));
         menuFileExit->setText(QApplication::translate("HelFitQtClass", "Exit", 0));
         menuLoadModel->setText(QApplication::translate("HelFitQtClass", "Load existing model...", 0));
         menuDebyeCurrModel->setText(QApplication::translate("HelFitQtClass", "Calc. current model!", 0));

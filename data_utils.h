@@ -853,7 +853,7 @@ namespace saxs
 	}
 
 	//Save Stacked Model as PDB file
-	void writestackedmodeltopdb(std::string file_name, std::vector<coordinate_sp>& m_model, fittingobject_sp& reftofittingobject)
+	void writestackedmodeltopdb(std::string file_name, std::vector<coordinate_sp>& m_model, int num_stacks, double stack_spacing)
 	{
 		//add fileextension
 		file_name += "_stck.pdb";
@@ -870,18 +870,62 @@ namespace saxs
 		}
 
 		//Store results to file
-		for (int j = 0; j < reftofittingobject->m_num_stacks; j++)
+		for (int j = 0; j < num_stacks; j++)
 		{
 			for (int i = 0; i<m_model.size(); ++i)
 			{
-				outfile << "ATOM  " << pri((j + reftofittingobject->m_num_stacks + i + 1), 5) 
+				outfile << "ATOM  " << pri((j + num_stacks + i + 1), 5)
 					<< "  CA  ASP" 
-					<< pri((1 + int( (j + reftofittingobject->m_num_stacks + i) / 10)), 5)
+					<< pri((1 + int( (j + num_stacks + i) / 10)), 5)
 					<< "    "
 					<< prd(m_model[i]->m_x, 3, 8)
 					<< prd(m_model[i]->m_y, 3, 8)
-					<< prd(m_model[i]->m_z + double(j) * double(reftofittingobject->m_stack_spacing), 3, 8)
+					<< prd(m_model[i]->m_z + double(j) * double(stack_spacing), 3, 8)
 					<< prd(1.0, 2, 6)
+					<< prd(20.0, 2, 6)
+					<< "           C"
+					<< std::endl;
+			}
+		}
+		//Close file
+		outfile.close();
+	}
+
+	//Save Stacked Model as PDB file with occupancy
+	void writestackedoccmodeltopdb(std::string file_name, std::vector<coordinate_sp>& m_model, int num_stacks, double stack_spacing)
+	{
+		//add fileextension
+		file_name += "_stck.pdb";
+
+		//Open file 
+		std::ofstream outfile(file_name.c_str(), std::ifstream::out);
+
+		//Check if correctly open
+		if (!outfile.is_open())
+		{
+			std::stringstream error_stream;
+			error_message(QString::fromStdString("Cannot open " + file_name));
+			return;
+		}
+
+		//Find Maximum Occupancy
+		int occ_max = 0;
+		for (int i = 0; i<m_model.size(); ++i)
+			if (m_model[i]->m_nr_contacts>occ_max)occ_max = m_model[i]->m_nr_contacts;
+
+		//Store results to file
+		for (int j = 0; j < num_stacks; j++)
+		{
+			for (int i = 0; i<m_model.size(); ++i)
+			{
+				outfile << "ATOM  " << pri((j + num_stacks + i + 1), 5)
+					<< "  CA  ASP"
+					<< pri((1 + int((j + num_stacks + i) / 10)), 5)
+					<< "    "
+					<< prd(m_model[i]->m_x, 3, 8)
+					<< prd(m_model[i]->m_y, 3, 8)
+					<< prd(m_model[i]->m_z + double(j) * double(stack_spacing), 3, 8)
+					<< prd(double(m_model[i]->m_nr_contacts) / double(occ_max), 2, 6)
 					<< prd(20.0, 2, 6)
 					<< "           C"
 					<< std::endl;

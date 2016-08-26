@@ -477,6 +477,7 @@ void HelFitQt::actionRunMerger()
 
 	//Now save summed model to file
 	saxs::writemodeltopdb(savefilename+"_sum", sum_model);
+	saxs::writestackedmodeltopdb(savefilename + "_sum", sum_model, ui.spbCalcNrStacks->value(), ui.lineStackSpacing->text().toDouble());
 
 	//Output 
 	str = "Full model saved to " + savefilename + "_sum.pdb";
@@ -499,7 +500,7 @@ void HelFitQt::actionRunMerger()
 
 	//Number of voxels in Grid
 	int n_newgrid = int(double(sum_model.size()) * V_new / V_old*2.);
-	double calc_resolution = std::pow(V_new/double(n_newgrid),0.333);
+	double calc_resolution = std::pow(V_new/double(n_newgrid),0.333)/1.5;
 
 	//Check resolution with user
 	str = "Specify resolution of occupancy model [nm]:";
@@ -519,6 +520,7 @@ void HelFitQt::actionRunMerger()
 
 	//Save occupancy model
 	saxs::writeoccmodeltopdb(savefilename + "_occ", occ_model);
+	saxs::writestackedoccmodeltopdb(savefilename + "_occ", occ_model, ui.spbCalcNrStacks->value(), ui.lineStackSpacing->text().toDouble());
 	str = "Occupancy model saved to " + savefilename + "_occ.pdb";
 	writetolog(str);
 
@@ -831,7 +833,7 @@ void HelFitQt::actionSaveModel()
 
 	//Now write to file
 	saxs::writemodeltopdb(savefilename, globalfittingobject->m_model);
-	saxs::writestackedmodeltopdb(savefilename, globalfittingobject->m_model, globalfittingobject);
+	saxs::writestackedmodeltopdb(savefilename, globalfittingobject->m_model, globalfittingobject->m_num_stacks, globalfittingobject->m_stack_spacing);
 
 	writetolog("Models saved to " + savefilename + ".pdb and *_stck.pdb");
 }
@@ -1004,7 +1006,7 @@ void HelFitQt::finishedDebyeFitCurrentModel()
 	{
 		tempstring = savefilename + "_" + std::to_string(i);
 		saxs::writemodeltopdb(tempstring, result_tracer[i]->m_coordinate);
-		saxs::writestackedmodeltopdb(tempstring, result_tracer[i]->m_coordinate, globalfittingobject);
+		saxs::writestackedmodeltopdb(tempstring, result_tracer[i]->m_coordinate, globalfittingobject->m_num_stacks, globalfittingobject->m_stack_spacing);
 		saxs::writedatatochi(tempstring, globalfittingobject->m_data_q, globalfittingobject->m_data_I, result_tracer[i]->m_fitted_I);
 		saxs::writechisquretofile(tempstring, i, result_tracer);
 	}
